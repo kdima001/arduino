@@ -21,7 +21,8 @@ uint8_t ERROR;
 //Режим работы
 uint8_t MODE;
 
-uint8_t V1, V2;
+//Массив для состояния выходов
+uint8_t out[6];
 
 //cal
 CalibrationPoint CalPoint;
@@ -64,19 +65,6 @@ float 		pH1 		= DEFAULT_PH,
 			delta_T2 	= DEFAULT_D_TEMP,
 			curValue 	= 0;
 
-//---------------------------------------------------------------------------
-void SetValve(uint8_t pin, uint8_t state) {
-	//если клапан на PWM выходе - включаем и переходим в удержание
-	if (state && (pin == 6 || pin == 9 || pin == 10 || pin == 11 )) {
-		//даем на всю железку
-		analogWrite(pin, ON_VALVE_VALUE);
-		delay(200);
-		//переходим на пол-шишечки
-		analogWrite(pin, HOLD_VALVE_VALUE);
-		return;
-	}		
-	digitalWrite(pin, state);		
-}			
 //----------------------------------------------------------------
 void BlinkScreen(uint8_t cnt=1) {
 	for(int i=0; i<cnt; i++) {
@@ -111,11 +99,6 @@ void setup() {
 	//set a medium brightness for the Leds
 	lc.setIntensity(0, LED_INTENSITY);
 	lc.clearDisplay(0);
-	
-	V1 = LOW;
-	V2 = LOW;
-	SetValve(VALVE1_PIN, V1);		
-	SetValve(VALVE2_PIN, V2);
 	
 	target_pH1 = ReadFloatVal(ADR_TARGET_PH1, MIN_PH_SCALE, MAX_PH_SCALE);
 	
@@ -175,34 +158,34 @@ void setup() {
 	Write4Char(G1, "0000"); Write4Char(G2, "0000"); 
 	BlinkScreen(3);
 	
-	Serial << F(" VALVE1=ON");	SetValve(VALVE1_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" VALVE1=ON");	writeOutput(VALVE1_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G2, "0001"); 
-	Serial << F(" VALVE1=OFF");	SetValve(VALVE1_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" VALVE1=OFF");	writeOutput(VALVE1_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G2, "0000"); 
 	
-	Serial << F(" VALVE2=ON");	SetValve(VALVE2_PIN, HIGH);	delay(TEST_DELAY); wdt_reset();
+	Serial << F(" VALVE2=ON");	writeOutput(VALVE2_PIN, HIGH);	delay(TEST_DELAY); wdt_reset();
 	Write4Char(G2, "0010"); 
-	Serial << F(" VALVE2=OFF");	SetValve(VALVE2_PIN, LOW);	delay(TEST_DELAY); wdt_reset();
+	Serial << F(" VALVE2=OFF");	writeOutput(VALVE2_PIN, LOW);	delay(TEST_DELAY); wdt_reset();
 	Write4Char(G2, "0000"); 
 	
-	Serial << F(" COOL1=ON");	digitalWrite(COOL1_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" COOL1=ON");	writeOutput(COOL1_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G2, "0100"); 
-	Serial << F(" COOL1=OFF");	digitalWrite(COOL1_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" COOL1=OFF");	writeOutput(COOL1_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G2, "0000"); 
 	
-	Serial << F(" HEAT1=ON");	digitalWrite(HEAT1_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" HEAT1=ON");	writeOutput(HEAT1_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G2, "1000"); 
-	Serial << F(" HEAT1=OFF");	digitalWrite(HEAT1_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" HEAT1=OFF");	writeOutput(HEAT1_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G2, "0000"); 
 	
-	Serial << F(" COOL2=ON");	digitalWrite(COOL2_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" COOL2=ON");	writeOutput(COOL2_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G1, "0001"); 
-	Serial << F(" COOL2=OFF");	digitalWrite(COOL2_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" COOL2=OFF");	writeOutput(COOL2_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G1, "0000"); 
 	
-	Serial << F(" HEAT2=ON");	digitalWrite(HEAT2_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" HEAT2=ON");	writeOutput(HEAT2_PIN, HIGH);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G1, "0010"); 
-	Serial << F(" HEAT2=OFF");	digitalWrite(HEAT2_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
+	Serial << F(" HEAT2=OFF");	writeOutput(HEAT2_PIN, LOW);	delay(TEST_DELAY); wdt_reset(); 
 	Write4Char(G1, "0000"); 
 	
 	Serial << endl << F("Test complete.") << endl;
@@ -403,7 +386,6 @@ void SaveSettings(void){
 unsigned long btnModeTime = 0, btnMinusTime = 0, btnPlusTime = 0;
 unsigned long btnModeTimeRepeate = 0, btnMinusTimeRepeate = 0, btnPlusTimeRepeate = 0;
 unsigned long btnOnTimer = 0;
-
 void ProcessBTN(bool p_pool = false) {
 	static uint8_t btnModeState, btnMinusState, btnPlusState, tmpi;
 	static uint16_t	btn;
@@ -549,14 +531,6 @@ void Write3Digit_2_1(uint8_t num, char ch, float f, bool point1 = false) {
 	lc.setChar(0, 0+num*4, tmps[3], false);	delay(DISP_DELAY);
 }
 //-------------------------------------------------------------
-/*void Write2Digit(uint8_t num, char str[], float f) {//num = 0 первый квартет, num = 1 второй квартет
-	dtostrf(f, 2, 0, tmps); //##
-	lc.setChar(0, 3+num*4, str[0], false);
-	lc.setChar(0, 2+num*4, str[1], true);
-	lc.setChar(0, 1+num*4, tmps[0], false);
-	lc.setChar(0, 0+num*4, tmps[1], false);
-}*/
-//-------------------------------------------------------------
 void Write4Digit(uint8_t num, float f) {//num = 0 первый квартет, num = 1 второй квартет
 	dtostrf(f, 5, 2, tmps);
 	lc.setChar(0, 3+num*4, tmps[0], false);	delay(DISP_DELAY);
@@ -590,25 +564,26 @@ void ProcessDisplay(void){
 			if ( curMillis - displayTime < WORK_DISPLAY_INT ) {
 				//Выводим кислотность
 				if (ERROR&ERROR_PH1) Write4Char(G1, " -Ph");
-				else {
-					if ( V1 = HIGH ) Write3Digit_1_2(G1, '_', pH1, false);
-					else Write3Digit_1_2(G1, ' ', pH1, false);
-				}
+				else 	if ( readOutput(VALVE1_PIN)) 
+								Write3Digit_1_2(G1, '_', pH1, false);
+							else 
+								Write3Digit_1_2(G1, ' ', pH1, false);
+
 				if (ERROR&ERROR_PH2) Write4Char(G2, " -Ph");
-				else {
-					if ( V2 = HIGH ) Write3Digit_1_2(G2, '_', pH2, false);
-					else Write3Digit_1_2(G2, ' ', pH2, false);					
-				}
+				else 	if ( readOutput(VALVE2_PIN) ) 
+								Write3Digit_1_2(G2, '_', pH2, false);
+							else 
+								Write3Digit_1_2(G2, ' ', pH2, false);					
 			} else {
 				//Выводим температуру
 				if (ERROR&ERROR_T1) Write4Char(G1, "--c ");
-				else if (digitalRead(COOL1_PIN)) Write3Digit_2_1(G1, '_', T1, false);
-						else if (digitalRead(HEAT1_PIN)) Write3Digit_2_1(G1, '.', T1, false);
+				else if ( readOutput(COOL1_PIN) ) Write3Digit_2_1(G1, '_', T1, false);
+						else if ( readOutput(HEAT1_PIN) ) Write3Digit_2_1(G1, '.', T1, false);
 								else Write3Digit_2_1(G1, ' ', T1, false);
 								
 				if (ERROR&ERROR_T2) Write4Char(G2, "--c ");
-				else if (digitalRead(COOL1_PIN)) Write3Digit_2_1(G2, '_', T2, false);
-						else if (digitalRead(HEAT1_PIN)) Write3Digit_2_1(G2, '.', T2, false);
+				else if ( readOutput(COOL1_PIN) ) Write3Digit_2_1(G2, '_', T2, false);
+						else if ( readOutput(HEAT1_PIN) ) Write3Digit_2_1(G2, '.', T2, false);
 								else Write3Digit_2_1(G2, ' ', T2, false);
 			}
 			break;
@@ -632,8 +607,29 @@ void ProcessDisplay(void){
 		case MODE_CAL_T1_2:		Write4Char4Digit("c 12", curValue);	break;
 		case MODE_CAL_T2_1:		Write4Char4Digit("c 21", curValue);	break;
 		case MODE_CAL_T2_2:		Write4Char4Digit("c 22", curValue);	break;
-	}
-	
+	}	
+}
+//-------------------------------------------------------------
+void writeOutput(uint8_t pin, bool state){
+	out[pin-4]=state;
+	digitalWrite(pin, state);
+}
+//-------------------------------------------------------------
+bool readOutput(uint8_t pin){
+	return out[pin-4];	
+}
+//-------------------------------------------------------------
+void Regulator(float val, float target_val, float delta, uint8_t dec_pin, uint8_t inc_pin) {
+	Serial << "REG: " << val << '\t' << target_val << '\t' << delta << endl;
+	if (val > target_val+delta && !readOutput(dec_pin) /*&& dec_pin*/)  
+		{ writeOutput(dec_pin, HIGH);	Serial << "REG=ON" << endl; }
+	if (val <= target_val && readOutput(dec_pin)/* && dec_pin*/) 
+		writeOutput(dec_pin, LOW);	
+		
+	if (val < target_val-delta && readOutput(inc_pin)==LOW && inc_pin)  
+		writeOutput(inc_pin, HIGH);					
+	if (val >= target_val	&&	readOutput(inc_pin)==HIGH && inc_pin) 
+		writeOutput(inc_pin, LOW);	
 }
 //-------------------------------------------------------------
 void loop() { 
@@ -680,61 +676,25 @@ void loop() {
 		Serial << endl;
 		
 		if (MODE == MODE_WORK) {
-			if (ERROR&ERROR_PH1 || ERROR&ERROR_T1) { 
-				V1=LOW; 
-				SetValve(VALVE1_PIN, LOW);	
-			} else {
-					if (pH1> target_pH1+delta_pH1 	&& V1==LOW ) { 
-						V1 = HIGH; 
-						SetValve(VALVE1_PIN, HIGH);
-					}	
-					if (pH1<=target_pH1 			&& V1==HIGH) { 
-						V1 = LOW;  
-						SetValve(VALVE1_PIN, HIGH); 
-					}
-			}
+			if (ERROR&ERROR_PH1 /*|| ERROR&ERROR_T1*/)
+				writeOutput(VALVE1_PIN, LOW);	
+			else 
+				Regulator(pH1, target_pH1, delta_pH1, VALVE1_PIN, 0);
 			
-			if (ERROR&ERROR_PH2 || ERROR&ERROR_T2) { 
-				V2=LOW; 
-				SetValve(VALVE2_PIN, LOW);	
-			} else {
-					if (pH2> target_pH2+delta_pH2 	&& V2==LOW ) { 
-						V2 = HIGH; 
-						SetValve(VALVE2_PIN, HIGH); 
-					}	
-					if (pH2<=target_pH2 			&& V2==HIGH) { 
-						V2 = LOW;  
-						SetValve(VALVE2_PIN, HIGH); 
-					}	
-			}
+			if (ERROR&ERROR_PH2 /*|| ERROR&ERROR_T2*/) 
+				writeOutput(VALVE2_PIN, LOW);	
+			else 
+				Regulator(pH2, target_pH2, delta_pH2, VALVE2_PIN, 0);
 			
 			if (ERROR&ERROR_T1) { 
-				digitalWrite(COOL1_PIN, LOW);
-				digitalWrite(HEAT1_PIN, LOW);				
-			} else {
-					if (T1 > target_T1+delta_T1 	&& digitalRead(COOL1_PIN)==LOW )  
-						digitalWrite(COOL1_PIN, HIGH);					
-					if (T1 <= target_T1 			&& digitalRead(COOL1_PIN)==HIGH) 
-						digitalWrite(COOL1_PIN, HIGH);					
-					if (T1 < target_T1-delta_T1 	&& digitalRead(HEAT1_PIN)==LOW )  
-						digitalWrite(HEAT1_PIN, HIGH);					
-					if (T1 <= target_T1 			&& digitalRead(HEAT1_PIN)==HIGH) 
-						digitalWrite(HEAT1_PIN, HIGH);					
-			}
+				writeOutput(COOL1_PIN, LOW);
+				writeOutput(HEAT1_PIN, LOW);				
+			} else Regulator(T1, target_T1, delta_T1, COOL1_PIN, HEAT1_PIN);
 			
 			if (ERROR&ERROR_T2) { 
-				digitalWrite(COOL2_PIN, LOW);
-				digitalWrite(HEAT2_PIN, LOW);				
-			} else {
-					if (T2 > target_T2+delta_T2 	&& digitalRead(COOL2_PIN)==LOW )  
-						digitalWrite(COOL2_PIN, HIGH);					
-					if (T2 <= target_T2 			&& digitalRead(COOL2_PIN)==HIGH) 
-						digitalWrite(COOL1_PIN, HIGH);					
-					if (T2 < target_T2-delta_T2 	&& digitalRead(HEAT2_PIN)==LOW )  
-						digitalWrite(HEAT1_PIN, HIGH);					
-					if (T2 <= target_T2 			&& digitalRead(HEAT2_PIN)==HIGH) 
-						digitalWrite(HEAT2_PIN, HIGH);					
-			}
+				writeOutput(COOL2_PIN, LOW);
+				writeOutput(HEAT2_PIN, LOW);				
+			} else Regulator(T2, target_T2, delta_T2, COOL2_PIN, HEAT2_PIN);
 		}
 	}
 }
