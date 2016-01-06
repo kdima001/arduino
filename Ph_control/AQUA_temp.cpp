@@ -14,11 +14,12 @@
   Public Functions
 */
 
-void AQUA_temp::init(uint8_t dqPin, uint8_t calibrate_points, uint8_t calibrate_address) {
+void AQUA_temp::init(DallasTemperature* sensors, uint8_t index, uint8_t calibrate_points, uint8_t calibrate_address) {
   uint16_t value, position;
   uint8_t i;
 
-  _dqPin = dqPin;
+  _index = index;
+  _sensors = sensors;
   _pointCount = calibrate_points;
   _calibrateAddress = calibrate_address;
   _calData = new CalibrationPoint[_pointCount];
@@ -48,45 +49,30 @@ void AQUA_temp::init(uint8_t dqPin, uint8_t calibrate_points, uint8_t calibrate_
     }
   }
   _setCalibrationValues();
-  pinMode(_dqPin, INPUT);
 }
 
 float AQUA_temp::getTemp(bool calibrate) {
-  uint8_t lowByte, highByte;
-  int16_t rawTemp;
-  float res = 0;
-
-  _reset();
-  _write(DS18B20_SKIPROM);
-  _write(DS18B20_CONVERTTEMP);
-  _wait_to_convert();
-  _reset();
-  _write(DS18B20_SKIPROM);
-  _write(DS18B20_RSCRATCHPAD);
-  lowByte = _read();
-  highByte = _read();
-  _reset();
-
-  rawTemp = (((int16_t)highByte) << 8) | lowByte;
-  res = (float)rawTemp * 0.0625;
-  if(calibrate == 0) {
-    if(_usedPoints == 1) {
-      res+= _const[0];
-    } else if(_usedPoints > 1) {
-      if(res >= _usedData[_usedPoints-1].actValue) {
-        res = _const[(_usedPoints-2)*2]*res + _const[(_usedPoints-2)*2 + 1];
-      } else {
-        for(uint8_t i = 1; i < _usedPoints; i++) {
-          if(res <= _usedData[i].actValue) {
-            res = _const[(i-1)*2]*res + _const[(i-1)*2 + 1];
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  return res;
+	float res = 0;
+	res = _sensors->getTempCByIndex(_index);
+	if ( res != DEVICE_DISCONNECTED ) {
+		if(calibrate) {
+			if(_usedPoints == 1) {
+				res+= _const[0];
+			} else if(_usedPoints > 1) {
+				if(res >= _usedData[_usedPoints-1].actValue) {
+					res = _const[(_usedPoints-2)*2]*res + _const[(_usedPoints-2)*2 + 1];
+				} else {
+					for(uint8_t i = 1; i < _usedPoints; i++) {
+						if(res <= _usedData[i].actValue) {
+							res = _const[(i-1)*2]*res + _const[(i-1)*2 + 1];
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+	return (round(res*10.0))/10.0;
 }
 
 bool AQUA_temp::calibration(uint8_t point, CalibrationPoint *values) {
@@ -178,92 +164,6 @@ void AQUA_temp::_setCalibrationValues() {
     for(i = 0; i < _usedPoints - 1; i++) {
       _const[i*2] = (_usedData[i+1].refValue - _usedData[i].refValue)/(_usedData[i+1].actValue - _usedData[i].actValue);
       _const[i*2 + 1] = _usedData[i+1].refValue - _const[i*2]*_usedData[i+1].actValue;
-    }
-  }
-}
-
-bool AQUA_temp::_reset(void) {
-  bool res;
-
-  noInterrupts();
-  digitalWrite(_dqPin, HIGH);
-  digitalWrite(_dqPin, LOW);
-  pinMode(_dqPin, OUTPUT);
-  interrupts();
-  delayMicroseconds(480);
-  noInterrupts();
-  pinMode(_dqPin, INPUT);
-  delayMicroseconds(70);
-  res = !digitalRead(_dqPin);
-  interrupts();
-  delayMicroseconds(410);
-
-  return res;
-}
-
-uint8_t AQUA_temp::_read(void) {
-  uint8_t res = 0;
-
-  for(uint8_t bitMask = 0x01; bitMask; bitMask <<= 1) {
-    if(_read_bit()) {
-      res |= bitMask;
-    }
-  }
-  return res;
-}
-
-uint8_t AQUA_temp::_read_bit(void) {
-  uint8_t res;
-
-  noInterrupts();
-  pinMode(_dqPin, OUTPUT);
-  digitalWrite(_dqPin, LOW);
-  delayMicroseconds(3);
-  pinMode(_dqPin, INPUT);
-//  digitalWrite(_dqPin, HIGH);
-  delayMicroseconds(10);
-  res = digitalRead(_dqPin);
-  interrupts();
-  delayMicroseconds(53);
-
-  return res;
-}
-
-void AQUA_temp::_write(uint8_t command) {
-  for(uint8_t bitMask = 0x01; bitMask; bitMask <<= 1) {
-    _write_bit((bitMask & command)?1:0);
-  }
-/*  noInterrupts();
-  pinMode(_dqPin, INPUT);
-  digitalWrite(_dqPin, LOW);
-  interrupts();*/
-}
-
-void AQUA_temp::_write_bit(uint8_t value) {
-  if(value & 1) {
-    noInterrupts();
-    digitalWrite(_dqPin, LOW);
-    pinMode(_dqPin, OUTPUT);
-    delayMicroseconds(10);
-    digitalWrite(_dqPin, HIGH);
-    interrupts();
-    delayMicroseconds(55);
-  } else {
-    noInterrupts();
-    digitalWrite(_dqPin, LOW);
-    pinMode(_dqPin, OUTPUT);
-    delayMicroseconds(65);
-    digitalWrite(_dqPin, HIGH);
-    interrupts();
-    delayMicroseconds(5);
-  }
-}
-
-void AQUA_temp::_wait_to_convert(void) {
-  unsigned long waiting = millis() + 750;
-  while(millis() < waiting) {
-    if(digitalRead(_dqPin) > 0) {
-      break;
     }
   }
 }

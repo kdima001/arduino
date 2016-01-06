@@ -70,25 +70,13 @@ LMP91200
 pH = 7 + (VOUT - VOCM)/alpha
 alpha = -59.16mV/pH @ 25°C
 */
-float AQUA_ph::getPH(bool calibrate, float T) {
-  uint8_t i;
-  float res, adcValue;
-
-  /*switch (_adc) {
-    case 2: //external ADS1115
-      adcValue = (float)objADS1115->getValue();
-      break;
-    case 1: //external ADC141S626
-      adcValue = (float)objADC141S626->getValue();
-      break;
-    default: //internal arduino ADC
-      adcValue = _readInternalADC();
-  }*/
+float AQUA_ph::getPH(float T, bool calibrate) {
+	uint8_t i;
+	float res, adcValue;
 	adcValue = objADS1110->getValue();
-  res = adcValue/((273.15+T)*0.0001981986367)+7.00;
-	//.00 + adcValue/(0.0 - _alpha);
+	res = adcValue/((273.15+T)*0.0001981986367)+7.00;
 
-  if(calibrate == 0) {
+  if(calibrate) {
     if(_usedPoints == 1) {
       res+= _const[0];
     } else if(_usedPoints > 1) {
@@ -105,9 +93,9 @@ float AQUA_ph::getPH(bool calibrate, float T) {
     }
   }
 
-  return res;
+  return (round(res*100.0))/100.0;  
 }
-
+//-------------------------------------------------------------------------------------------------------------
 bool AQUA_ph::calibration(uint8_t point, CalibrationPoint *values) {
   bool res = false;
 

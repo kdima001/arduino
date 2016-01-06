@@ -17,7 +17,7 @@ class AQUA_ph {
     //void useInternalADC();
     //void useADC141S626(uint8_t _voutPin, uint8_t _misoPin = 50, uint8_t _mosiPin = 51, uint8_t _sclkPin = 52, uint8_t _ssPin = 53);
     void useADS1110(uint8_t adr, TwoWire *wire);
-    float getPH(bool calibrate = 0, float T = 22);
+    float getPH(float T, bool calibrate=true);
     bool calibration(uint8_t point, CalibrationPoint *values);
     CalibrationPoint readCalibrationPoint(uint8_t point);
 
