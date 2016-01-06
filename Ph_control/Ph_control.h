@@ -73,7 +73,6 @@
 #define COOL2_PIN 7
 #define HEAT2_PIN 8
 
-
 //PH датчики
 //Канал 1 (АЦП - EDO)
 #define pH1_I2C_adr B1001000
