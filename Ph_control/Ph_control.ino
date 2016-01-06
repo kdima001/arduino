@@ -1,6 +1,5 @@
 #include "Ph_control.h"
 
-//#include <SoftwareSerial.h>
 #include <Wire.h>
 #include <EEPROM.h>
 #include <LedControl.h>
@@ -676,12 +675,12 @@ void loop() {
 		Serial << endl;
 		
 		if (MODE == MODE_WORK) {
-			if (ERROR&ERROR_PH1 /*|| ERROR&ERROR_T1*/)
+			if (ERROR&ERROR_PH1 ) //Ошибка температуры отключит компенсацию по температуре и уменьшит точность определения РH
 				writeOutput(VALVE1_PIN, LOW);	
 			else 
 				Regulator(pH1, target_pH1, delta_pH1, VALVE1_PIN, 0);
 			
-			if (ERROR&ERROR_PH2 /*|| ERROR&ERROR_T2*/) 
+			if (ERROR&ERROR_PH2 ) 
 				writeOutput(VALVE2_PIN, LOW);	
 			else 
 				Regulator(pH2, target_pH2, delta_pH2, VALVE2_PIN, 0);
