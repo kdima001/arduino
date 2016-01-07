@@ -5,7 +5,7 @@
 #define G1 				1 //group 1
 #define G2				0 //group 2
 
-#define MIN_PH_SCALE	5
+#define MIN_PH_SCALE	4
 #define MAX_PH_SCALE	9
 
 #define MIN_T_SCALE		18
@@ -80,20 +80,20 @@
 #define pH2_I2C_adr B1001001
 
 #define PH_CALIBRATE_POINTS    	2 //number of calibrating points 
-#define PH1_CALIBRATE_ADDR   	0x01 //4 bytes for each calibration point = 2 bytes for reference value and 2 bytes for measured value (2 point calibration = 8 bytes)
-#define PH2_CALIBRATE_ADDR   	0x08 //4 bytes for each calibration point = 2 bytes for reference value and 2 bytes for measured value (2 point calibration = 8 bytes)
+#define ADR_PH1_CALIBRATE   	1 //4 bytes for each calibration point = 2 bytes for reference value and 2 bytes for measured value (2 point calibration = 8 bytes)
+#define ADR_PH2_CALIBRATE   	9 //4 bytes for each calibration point = 2 bytes for reference value and 2 bytes for measured value (2 point calibration = 8 bytes)
 
-#define ADR_TARGET_PH1			0x20 //2 bytes to store target pH value
-#define ADR_TARGET_D_PH1		0x22 //2 bytes to store target delta pH value
+#define ADR_TARGET_PH1			17 //2 bytes to store target pH value
+#define ADR_TARGET_D_PH1		19 //2 bytes to store target delta pH value
 
-#define ADR_TARGET_PH2			0x24
-#define ADR_TARGET_D_PH2		0x26
+#define ADR_TARGET_PH2			21
+#define ADR_TARGET_D_PH2		23
 
-#define ADR_TARGET_T1			0x28
-#define ADR_TARGET_D_T1			0x2A
+#define ADR_TARGET_T1			25
+#define ADR_TARGET_D_T1			27
 
-#define ADR_TARGET_T2			0x2C
-#define ADR_TARGET_D_T2			0x2E
+#define ADR_TARGET_T2			29
+#define ADR_TARGET_D_T2			31
 
 #define DEFAULT_PH				7
 #define DEFAULT_D_PH			0.4
@@ -106,7 +106,8 @@
 #define TEMPERATURE_PRECISION 	9
 
 #define T_CALIBRATE_POINTS  	2 //number of calibrating points
-#define T1_CALIBRATE_ADDR 		0x10 //4 bytes for each calibration point = 2 bytes for reference value and 2 bytes for measured value (2 point calibration = 8 bytes)
-#define T2_CALIBRATE_ADDR 		0x18 //4 bytes for each calibration point = 2 bytes for reference value and 2 bytes for measured value (2 point calibration = 8 bytes)
+
+#define ADR_T1_CALIBRATE 		33 //4 bytes for each calibration point = 2 bytes for reference value and 2 bytes for measured value (2 point calibration = 8 bytes)
+#define ADR_T2_CALIBRATE 		41 //4 bytes for each calibration point = 2 bytes for reference value and 2 bytes for measured value (2 point calibration = 8 bytes)
 
 #define TEST_DELAY		500

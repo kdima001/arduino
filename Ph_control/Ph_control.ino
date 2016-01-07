@@ -24,7 +24,7 @@ uint8_t MODE;
 uint8_t out[6];
 
 //cal
-CalibrationPoint CalPoint;
+CalibrationPoint calPoint;
 
 //Temp
 AQUA_temp objT1, objT2;
@@ -89,6 +89,11 @@ float WriteFloatVal(const uint16_t ADR, float val) {
 	eeprom_write_word((uint16_t *)ADR, (uint16_t)(val*1000)); 
 }
 //----------------------------------------------------------------
+void PrintCalibrationValues(CalibrationPoint* cal){
+	if( cal->state) Serial << cal->actValue << '\t' << cal->refValue;
+	else Serial << F("disabled");
+}
+//----------------------------------------------------------------
 void setup() { 
 	wdt_enable (WDTO_8S); 
 	Wire.begin();
@@ -119,15 +124,15 @@ void setup() {
 		 sensors.setResolution(TEMPERATURE_PRECISION);
 	}		
 
-	objT1.init(&sensors, 0, T_CALIBRATE_POINTS, T1_CALIBRATE_ADDR);
+	objT1.init(&sensors, 0, T_CALIBRATE_POINTS, ADR_T1_CALIBRATE);
 		
-	objT2.init(&sensors, 1, T_CALIBRATE_POINTS, T2_CALIBRATE_ADDR);
+	objT2.init(&sensors, 1, T_CALIBRATE_POINTS, ADR_T2_CALIBRATE);
 	
-	objpH1.init(PH_CALIBRATE_POINTS, PH1_CALIBRATE_ADDR);
+	objpH1.init(PH_CALIBRATE_POINTS, ADR_PH1_CALIBRATE);
 	objpH1.useADS1110(pH1_I2C_adr, &Wire);
 	
-	objpH2.init(PH_CALIBRATE_POINTS, PH2_CALIBRATE_ADDR);
-	objpH2.useADS1110(pH1_I2C_adr, &Wire);
+	objpH2.init(PH_CALIBRATE_POINTS, ADR_PH2_CALIBRATE);
+	objpH2.useADS1110(pH2_I2C_adr, &Wire);
 		
 	// Setup the button
 	pinMode(BUTTON_PIN, INPUT);
@@ -190,9 +195,61 @@ void setup() {
 	Serial << endl << F("Test complete.") << endl;
 	lc.clearDisplay(0);
 	
+	Serial << F("Calibration values:") << endl;
+	calPoint = objpH1.readCalibrationPoint(0);
+	Serial << F("PH1 p1: "); PrintCalibrationValues(&calPoint);
+	calPoint = objpH1.readCalibrationPoint(1);
+	Serial << F("\tp2: "); PrintCalibrationValues(&calPoint);
+	Serial << endl;
+	
+	calPoint = objpH2.readCalibrationPoint(0);
+	Serial << F("PH2 p1: "); PrintCalibrationValues(&calPoint);
+	calPoint = objpH2.readCalibrationPoint(1);
+	Serial << F("\t p2: "); PrintCalibrationValues(&calPoint);
+    Serial << endl;
+
+	calPoint = objT1.readCalibrationPoint(0);
+	Serial << F("T1 p1: "); PrintCalibrationValues(&calPoint);
+	calPoint = objT1.readCalibrationPoint(1);
+	Serial << F("\t p2: "); PrintCalibrationValues(&calPoint);
+  Serial << endl;	
+	
+	calPoint = objT2.readCalibrationPoint(0);
+	Serial << F("T2 p1: "); PrintCalibrationValues(&calPoint);
+	calPoint = objT2.readCalibrationPoint(1);
+	Serial << F("\t p2: "); PrintCalibrationValues(&calPoint);
+  Serial << endl;	
+	
+	uint16_t val;
+	
+	/*Serial << "RAW CAL:" << '\t';
+	eeprom_busy_wait();
+	val = eeprom_read_word((const uint16_t *)1); 
+	Serial << val << '\t';
+	val = eeprom_read_word((const uint16_t *)3); 
+	Serial << val << '\t';
+	
+	val = eeprom_read_word((const uint16_t *)5); 
+	Serial << val << '\t';
+	val = eeprom_read_word((const uint16_t *)7); 
+	Serial << val << '\t';
+	
+	Serial << endl;
+	
+	val = eeprom_read_word((const uint16_t *)ADR_PH2_CALIBRATE+0); 
+	Serial << val << '\t';
+	val = eeprom_read_word((const uint16_t *)ADR_PH2_CALIBRATE+2); 
+	Serial << val << '\t';
+	
+	val = eeprom_read_word((const uint16_t *)ADR_PH2_CALIBRATE+4); 
+	Serial << val << '\t';
+	val = eeprom_read_word((const uint16_t *)ADR_PH2_CALIBRATE+6); 
+	Serial << val << '\t';
+	*/
+	
 	MODE = MODE_WORK;
 	
-	CalPoint.state = true;
+	calPoint.state = true;
 }
 //---------------------------------------------------------------------------
 //режим будет сменен
@@ -200,32 +257,32 @@ void BeforeChangeMode(uint8_t oldMode, uint8_t newMode) {
 	//выход из режима - сохранение сделанных настроек
 	switch (newMode){ 
 		case MODE_CAL_PH1_1:
-			CalPoint = objpH1.readCalibrationPoint(0);
+			calPoint = objpH1.readCalibrationPoint(0);
 			break;
 		case MODE_CAL_PH1_2:
-			CalPoint = objpH1.readCalibrationPoint(1);
+			calPoint = objpH1.readCalibrationPoint(1);
 			break;
 		case MODE_CAL_PH2_1:
-			CalPoint = objpH2.readCalibrationPoint(0);
+			calPoint = objpH2.readCalibrationPoint(0);
 			break;
 		case MODE_CAL_PH2_2:
-			CalPoint = objpH2.readCalibrationPoint(1);
+			calPoint = objpH2.readCalibrationPoint(1);
 			break;
 		case MODE_CAL_T1_1:
-			CalPoint = objT1.readCalibrationPoint(0);
+			calPoint = objT1.readCalibrationPoint(0);
 			break;
 		case MODE_CAL_T1_2:
-			CalPoint = objT1.readCalibrationPoint(1);
+			calPoint = objT1.readCalibrationPoint(1);
 			break;
 		case MODE_CAL_T2_1:
-			CalPoint = objT2.readCalibrationPoint(0);
+			calPoint = objT2.readCalibrationPoint(0);
 			break;
 		case MODE_CAL_T2_2:
-			CalPoint = objT2.readCalibrationPoint(1);
+			calPoint = objT2.readCalibrationPoint(1);
 			break;
 	}
 	
-	curValue = CalPoint.refValue;
+	curValue = calPoint.refValue;
 	
 	switch (newMode) { 
 		case MODE_SET_PH1:	
@@ -302,7 +359,8 @@ void IncreaseCurValue(void) {
 //Сменили режим
 void SaveSettings(void){
 	
-	CalPoint.refValue = curValue;
+	calPoint.refValue = curValue;
+	calPoint.state = true;
 	
 	switch (MODE){
 	
@@ -344,37 +402,37 @@ void SaveSettings(void){
 			
 		case MODE_CAL_PH1_1:
 			//запишем калибровочную точку
-			CalPoint.actValue = objpH1.getPH(T1, false); // измеряем pH без компенсации
-			objpH1.calibration(0, &CalPoint);
+			calPoint.actValue = objpH1.getPH(T1, false); // измеряем pH без компенсации
+			objpH1.calibration(0, &calPoint);
 			break;
 		case MODE_CAL_PH1_2:
-			CalPoint.actValue = objpH1.getPH(T1, false); // измеряем pH без компенсации
-			objpH1.calibration(1, &CalPoint);
+			calPoint.actValue = objpH1.getPH(T1, false); // измеряем pH без компенсации
+			objpH1.calibration(1, &calPoint);
 			break;
 		case MODE_CAL_PH2_1:
-			CalPoint.actValue = objpH2.getPH(T2, false); // измеряем pH без компенсации
-			objpH2.calibration(0, &CalPoint);
+			calPoint.actValue = objpH2.getPH(T2, false); // измеряем pH без компенсации
+			objpH2.calibration(0, &calPoint);
 			break;
 		case MODE_CAL_PH2_2:
-			CalPoint.actValue = objpH2.getPH(T2, false); // измеряем pH без компенсации
-			objpH2.calibration(1, &CalPoint);
+			calPoint.actValue = objpH2.getPH(T2, false); // измеряем pH без компенсации
+			objpH2.calibration(1, &calPoint);
 			break;
 			
 		case MODE_CAL_T1_1:
-			CalPoint.actValue = objT1.getTemp(false); 
-			objT1.calibration(0, &CalPoint);
+			calPoint.actValue = objT1.getTemp(false); 
+			objT1.calibration(0, &calPoint);
 			break;
 		case MODE_CAL_T1_2:
-			CalPoint.actValue = objT1.getTemp(false); 
-			objT1.calibration(1, &CalPoint);
+			calPoint.actValue = objT1.getTemp(false); 
+			objT1.calibration(1, &calPoint);
 			break;		
 		case MODE_CAL_T2_1:
-			CalPoint.actValue = objT2.getTemp(false); 
-			objT2.calibration(0, &CalPoint);
+			calPoint.actValue = objT2.getTemp(false); 
+			objT2.calibration(0, &calPoint);
 			break;
 		case MODE_CAL_T2_2:
-			CalPoint.actValue = objT2.getTemp(false); 
-			objT2.calibration(1, &CalPoint);
+			calPoint.actValue = objT2.getTemp(false); 
+			objT2.calibration(1, &calPoint);
 			break;
 	}
 	Serial << F("Save seting") << endl;
@@ -619,9 +677,8 @@ bool readOutput(uint8_t pin){
 }
 //-------------------------------------------------------------
 void Regulator(float val, float target_val, float delta, uint8_t dec_pin, uint8_t inc_pin) {
-	Serial << "REG: " << val << '\t' << target_val << '\t' << delta << endl;
 	if (val > target_val+delta && !readOutput(dec_pin) /*&& dec_pin*/)  
-		{ writeOutput(dec_pin, HIGH);	Serial << "REG=ON" << endl; }
+		writeOutput(dec_pin, HIGH);
 	if (val <= target_val && readOutput(dec_pin)/* && dec_pin*/) 
 		writeOutput(dec_pin, LOW);	
 		

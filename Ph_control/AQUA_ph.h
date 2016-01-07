@@ -24,13 +24,16 @@ class AQUA_ph {
   private:
     //uint8_t _adc;
     //uint8_t _voutPin, _vocmPin;
+		bool avg_empty;
+		float avg_val[5], avg;
+		
     uint8_t _pointCount;
     uint8_t _calibrateAddress;
     CalibrationPoint* _calData;
     CalibrationPoint* _usedData;
     uint8_t _usedPoints;
     float* _const;
-    float _alpha, _constPerUnit;
+    //float _alpha, _constPerUnit;
     //AQUA_adc141s626 *objADC141S626;
     AQUA_ads1110 *objADS1110;
 

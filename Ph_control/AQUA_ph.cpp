@@ -9,6 +9,7 @@
 #include <Arduino.h>
 #include "CalibrationPoint.h"
 #include "AQUA_ph.h"
+#include <Streaming.h>  
 
 /*
   Public Functions
@@ -17,6 +18,8 @@
 void AQUA_ph::init(uint8_t calibrate_points, uint8_t calibrate_address) {
   uint16_t value, position;
   uint8_t i;
+  
+  avg_empty = true;
   
   _pointCount = calibrate_points;
   _calibrateAddress = calibrate_address;
@@ -47,19 +50,8 @@ void AQUA_ph::init(uint8_t calibrate_points, uint8_t calibrate_address) {
     }
   }
   _setCalibrationValues();
-  //useInternalADC();
-  //objADC141S626 = new AQUA_adc141s626;
   objADS1110 = new AQUA_ads1110;
 }
-
-/*void AQUA_ph::useInternalADC() {
-  _adc = 0;
-}*/
-
-/*void AQUA_ph::useADC141S626(uint8_t voutPin, uint8_t misoPin, uint8_t mosiPin, uint8_t sclkPin, uint8_t ssPin) {
-  _adc = 1;
-  objADC141S626->init(voutPin, misoPin, mosiPin, sclkPin, ssPin);
-}*/
 
 void AQUA_ph::useADS1110(uint8_t adr, TwoWire *wire) {
   objADS1110->init(adr, wire);
@@ -74,9 +66,24 @@ float AQUA_ph::getPH(float T, bool calibrate) {
 	uint8_t i;
 	float res, adcValue;
 	adcValue = objADS1110->getValue();
-	res = adcValue/((273.15+T)*0.0001981986367)+7.00;
-
-  if(calibrate) {
+	res = 7.00-adcValue/((273.15+T)*0.0001981986367);
+	
+	if(avg_empty) { //first meas
+		avg_empty = false;
+		avg_val[0] = res;		avg_val[1] = res;		avg_val[2] = res;		avg_val[3] = res;		avg_val[4] = res;
+	}
+		
+	for(i = 0, avg = 0; i<4; i++) { //продвигаем вперед 4 правых элемента массива и подсуммируем
+		avg_val[i] = avg_val[i+1];
+		avg += avg_val[i];
+	}
+	
+	avg_val[4] = res;	//пихаем значение в последний элемент
+	avg += avg_val[4]; //подсуммируем
+	
+	res = (float)avg/5.0; //усредняем и переходим обратно во float
+	
+	if(calibrate) {
     if(_usedPoints == 1) {
       res+= _const[0];
     } else if(_usedPoints > 1) {
@@ -92,15 +99,19 @@ float AQUA_ph::getPH(float T, bool calibrate) {
       }
     }
   }
-
+	
   return (round(res*100.0))/100.0;  
 }
 //-------------------------------------------------------------------------------------------------------------
 bool AQUA_ph::calibration(uint8_t point, CalibrationPoint *values) {
   bool res = false;
 
-  if(point < _pointCount && point >= 0 && values->refValue <= 14000 && values->refValue >= 0 && values->actValue <= 14000 && values->actValue >= 0) {
-    if(values->state != _calData[point].state || values->refValue != _calData[point].refValue || values->actValue != _calData[point].actValue) {
+  if(point < _pointCount && point >= 0 
+			&& values->refValue <= 14 && values->refValue >= 0 
+			&& values->actValue <= 14 && values->actValue >= 0) {
+    if(values->state != _calData[point].state 
+			|| values->refValue != _calData[point].refValue 
+			|| values->actValue != _calData[point].actValue) {
       _calData[point].state = values->state;
       _calData[point].refValue = values->refValue;
       _calData[point].actValue = values->actValue;
@@ -110,10 +121,10 @@ bool AQUA_ph::calibration(uint8_t point, CalibrationPoint *values) {
       }
       uint16_t position = point*4;
       eeprom_busy_wait();
-      eeprom_write_word((uint16_t *)(_calibrateAddress + position), _calData[point].refValue*1000 + plusValue);
+      eeprom_write_word((uint16_t *)(_calibrateAddress + position), (uint16_t)(_calData[point].refValue*1000) + plusValue);
       position+= 2;
       eeprom_busy_wait();
-      eeprom_write_word((uint16_t *)(_calibrateAddress + position), _calData[point].actValue*1000);
+      eeprom_write_word((uint16_t *)(_calibrateAddress + position), (uint16_t)(_calData[point].actValue*1000));
       _setCalibrationValues();
       res = true;
     }
@@ -188,33 +199,3 @@ void AQUA_ph::_setCalibrationValues() {
     }
   }
 }
-
-/*
-LMP91200
-pH = 7 + (VOUT - VOCM)/alpha
-alpha = -59.16mV/pH @ 25°C
-*/
-/*float AQUA_ph::_readInternalADC() {
-  int tmp, total = 0;
-  int values[120];
-  float res;
-  uint8_t i, j;
-
-  for(i = 0; i < 120; i++) {
-    values[i] = analogRead(_voutPin) - analogRead(_vocmPin);
-  }
-  for(i = 0; i < 119; i++) {
-    for(j = i+1; j < 120; j++) {
-      if(values[i] > values[j]) {
-        tmp = values[i];
-        values[i] = values[j];
-        values[j] = tmp;
-      }
-    }
-  }
-  for(i = 10; i < 110; i++) {
-    total+= values[i];
-  }
-  res = (float)(total/100.0)*_constPerUnit;
-  return res;
-}*/
